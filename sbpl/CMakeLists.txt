@@ -126,7 +126,7 @@ set(PKG_NAME "sbpl")
 set(PKG_DESC "The Search Based Planning Library")
 set(PKG_SBPL_LIBS "-lsbpl")
 set(pkg_conf_file_in "${CMAKE_CURRENT_SOURCE_DIR}/sbpl.pc.in")
-set(pkg_conf_file "InstallFiles/sbpl.pc")
+set(pkg_conf_file "${CMAKE_CURRENT_BINARY_DIR}/sbpl.pc")
 configure_file("${pkg_conf_file_in}" "${pkg_conf_file}" @ONLY)
 install(FILES ${pkg_conf_file} DESTINATION lib/pkgconfig/ COMPONENT pkgconfig)
 
@@ -169,11 +169,11 @@ set(CMAKE_BUILD_TYPE Debug)
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS sbpl sbpl_node
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(TARGETS sbpl
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
