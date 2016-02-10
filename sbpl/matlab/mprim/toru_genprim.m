@@ -37,56 +37,49 @@ function[] = toru_genprim(outfilename)
 
 %defines
 
-resolution = 0.025;
-numberofangles = 16; %preferably a power of 2, definitely multiple of 8
-
-numofsamples = 10; % number of points in the lattice
-
-eps = 0.1; % plus/minus range for search length
-max_simulation_time = 0.5; % maximal time to simulate trajectory forward 
+resolution = 0.015;              % this parameter should match the current map resolution
+max_simulation_time = 0.75;     % maximal time to simulate trajectory forward. The lowest the more precise the planning will be
+numberofangles = 16;            %preferably a power of 2, definitely multiple of 8
+eps = 0.1;                      % plus/minus percentege range for search length (search length = max_sim_time * linear_speed)
 
 delta_theta = 2*pi/numberofangles / max_simulation_time;
+
 % speeds in m/s or rad/s
-FAST_X = 0.5; 
-SLOW_X = 0.1;
-X_WITH_ROTATION = 0.35;
-FAST_THETA = 2 * delta_theta;
-SLOW_THETA = 1 * delta_theta;
-THETA_IN_PLACE = 2 * delta_theta;
+FAST_LINEAR_SPEED = 0.5;
+SLOW_LINEAR_SPEED = 0.1;
+LINEAR_SPEED_WITH_ROTATION = 0.35;
+FAST_ROTATION = 2 * delta_theta;
+SLOW_ROTATION = 1 * delta_theta;
+ROTATION_IN_PLACE = 2 * delta_theta;
+INERTIAL_OFFSET = 0.1 % constant used to take into account the inertia of the robot when it starts from rest.
+                      % In this case in fact, the robot will move straight for a little bit before starting to turn.
 
 %multipliers (multiplier is used as costmult*cost)
-straight_costmult = 1;
-forward_and_turn_costmult = 2;
-turn_in_place_costmult = 5000;
+COSTMULT_STRAIGHT = 1;
+COSTMULT_TURN_MOVING_FORWARD = 1;
+COSTMULT_TURN_IN_PLACE = 1;
 
 
-% PRIMTIVES parameters [v_x, v_theta, costmult, offset]
-% offset = start with straight before turning in meters 
+% PRIMTIVES parameters [v_x, v_theta, costmult, inertial_offset]
+
 primitives_params = ...
-    [FAST_X, 0, straight_costmult, 0;...
-    SLOW_X, 0, straight_costmult, 0;...
-    -FAST_X, 0, straight_costmult, 0;...
-    -SLOW_X, 0, straight_costmult, 0;...
-%     X_WITH_ROTATION, FAST_THETA, forward_and_turn_costmult, 0;...
-%     X_WITH_ROTATION, -FAST_THETA, forward_and_turn_costmult, 0;...
-%     -X_WITH_ROTATION, FAST_THETA, forward_and_turn_costmult, 0;...
-%     -X_WITH_ROTATION, -FAST_THETA, forward_and_turn_costmult, 0;...
-%     X_WITH_ROTATION, SLOW_THETA, forward_and_turn_costmult, 0;...
-%     X_WITH_ROTATION, -SLOW_THETA, forward_and_turn_costmult, 0;...
-%     -X_WITH_ROTATION, SLOW_THETA, forward_and_turn_costmult, 0;...
-%     -X_WITH_ROTATION, -SLOW_THETA, forward_and_turn_costmult, 0;...
-     X_WITH_ROTATION, FAST_THETA, forward_and_turn_costmult, 0.1;...
-    X_WITH_ROTATION, -FAST_THETA, forward_and_turn_costmult, 0.1;...
-    -X_WITH_ROTATION, FAST_THETA, forward_and_turn_costmult, 0.1;...
-    -X_WITH_ROTATION, -FAST_THETA, forward_and_turn_costmult, 0.1;...
-    X_WITH_ROTATION, SLOW_THETA, forward_and_turn_costmult, 0.1;...
-    X_WITH_ROTATION, -SLOW_THETA, forward_and_turn_costmult, 0.1;...
-    -X_WITH_ROTATION, SLOW_THETA, forward_and_turn_costmult, 0.1;...
-    -X_WITH_ROTATION, -SLOW_THETA, forward_and_turn_costmult, 0.1;...
-    0, THETA_IN_PLACE, turn_in_place_costmult, 0;...
-    0, -THETA_IN_PLACE, turn_in_place_costmult, 0;...
+    [FAST_LINEAR_SPEED, 0, COSTMULT_STRAIGHT, 0;...
+    SLOW_LINEAR_SPEED, 0, COSTMULT_STRAIGHT, 0;...
+    -FAST_LINEAR_SPEED, 0, COSTMULT_STRAIGHT, 0;...
+    -SLOW_LINEAR_SPEED, 0, COSTMULT_STRAIGHT, 0;...
+     LINEAR_SPEED_WITH_ROTATION, FAST_ROTATION, COSTMULT_TURN_MOVING_FORWARD, INERTIAL_OFFSET;...
+    LINEAR_SPEED_WITH_ROTATION, -FAST_ROTATION, COSTMULT_TURN_MOVING_FORWARD, INERTIAL_OFFSET;...
+    -LINEAR_SPEED_WITH_ROTATION, FAST_ROTATION, COSTMULT_TURN_MOVING_FORWARD, INERTIAL_OFFSET;...
+    -LINEAR_SPEED_WITH_ROTATION, -FAST_ROTATION, COSTMULT_TURN_MOVING_FORWARD, INERTIAL_OFFSET;...
+    LINEAR_SPEED_WITH_ROTATION, SLOW_ROTATION, COSTMULT_TURN_MOVING_FORWARD, INERTIAL_OFFSET;...
+    LINEAR_SPEED_WITH_ROTATION, -SLOW_ROTATION, COSTMULT_TURN_MOVING_FORWARD, INERTIAL_OFFSET;...
+    -LINEAR_SPEED_WITH_ROTATION, SLOW_ROTATION, COSTMULT_TURN_MOVING_FORWARD, INERTIAL_OFFSET;...
+    -LINEAR_SPEED_WITH_ROTATION, -SLOW_ROTATION, COSTMULT_TURN_MOVING_FORWARD, INERTIAL_OFFSET;...
+    0, ROTATION_IN_PLACE, COSTMULT_TURN_IN_PLACE, 0;...
+    0, -ROTATION_IN_PLACE, COSTMULT_TURN_IN_PLACE, 0;...
     ];
 
+numofsamples = 10;              % number of points in the lattice. (it shouldn't be modified)
 numberofprimsperangle = size(primitives_params, 1);
 
 fout = fopen(outfilename, 'w');
@@ -102,7 +95,6 @@ fprintf(fout, 'totalnumberofprimitives: %d\n', numberofprimsperangle*numberofang
 for angleind = 1:numberofangles
     figure(1);
     hold off;
-    end_points = zeros(numberofprimsperangle, 3);
 
     %current angle
     current_angle = (angleind-1)*2*pi/numberofangles;
@@ -128,25 +120,18 @@ for angleind = 1:numberofangles
         angle = 0;
 
         %now figure out what action will be        
-        baseendpose_c = [round(x/resolution), round(y/resolution), round(theta / (2*pi) * numberofangles)-(angleind-1)]
+        baseendpose_c = [round(x/resolution), round(y/resolution), round(theta / (2*pi) * numberofangles)-(angleind-1)];
         additionalactioncostmult = primitives_params(prim_idx,3);
-        end_points(prim_idx,:) = baseendpose_c;
-        endx_c = round(baseendpose_c(1)*cos(angle) - baseendpose_c(2)*sin(angle));        
+        endx_c = round(baseendpose_c(1)*cos(angle) - baseendpose_c(2)*sin(angle));
         endy_c = round(baseendpose_c(1)*sin(angle) + baseendpose_c(2)*cos(angle));
         endtheta_c = rem(angleind - 1 + baseendpose_c(3), numberofangles);
         %round(theta / 2*pi * numberofangles);
-        endpose_c = [endx_c endy_c endtheta_c]
+        endpose_c = [endx_c endy_c endtheta_c];
         
         fprintf(1, 'rotation angle=%f\n', angle*180/pi);
         
-        
-        if baseendpose_c(2) == 0 && baseendpose_c(3) == 0
-            %fprintf(1, 'endpose=%d %d %d\n', endpose_c(1), endpose_c(2), endpose_c(3));
-        end;
-        
         %generate intermediate poses (remember they are w.r.t 0,0 (and not
         %centers of the cells)
-        numofsamples = 10;
         intermcells_m = zeros(numofsamples,3);
         if 1 == 1
             startpt = [0 0 current_angle];
@@ -224,7 +209,6 @@ for angleind = 1:numberofangles
         hold on;
         
     end;
-    end_points
 
     grid;
     pause;
